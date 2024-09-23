@@ -21,6 +21,7 @@ adventure-platform = "4.3.0"
 junit = "5.9.2"
 checkerframework = "3.19.0"
 log4j = "2.20.0"
+lang3 = "3.17.0"
 jline = "3.21.0"
 terminalconsoleappender = "1.2.0"
 folia = "1.19.4-R0.1-SNAPSHOT"
@@ -87,6 +88,8 @@ netty-transport-native-io_uring = { group = "io.netty.incubator", name = "netty-
 log4j-api = { group = "org.apache.logging.log4j", name = "log4j-api", version.ref = "log4j" }
 log4j-core = { group = "org.apache.logging.log4j", name = "log4j-core", version.ref = "log4j" }
 log4j-slf4j2-impl = { group = "org.apache.logging.log4j", name = "log4j-slf4j2-impl", version.ref = "log4j" }
+
+lang3 = { group = "org.apache.commons", name = "commons-lang3", version.ref = "lang3" }
 
 jline-terminal = { group = "org.jline", name = "jline-terminal", version.ref = "jline" }
 jline-terminal-jna = { group = "org.jline", name = "jline-terminal-jna", version.ref = "jline" }

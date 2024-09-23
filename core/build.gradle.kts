@@ -14,6 +14,8 @@ dependencies {
     api(projects.common)
     api(projects.api)
 
+    api(libs.lang3)
+
     // Jackson JSON and YAML serialization
     api(libs.bundles.jackson)
     api(libs.guava)

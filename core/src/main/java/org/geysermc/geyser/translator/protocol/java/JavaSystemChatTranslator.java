@@ -38,6 +38,7 @@ import org.geysermc.geyser.text.ChatColor;
 import org.geysermc.geyser.text.GeyserLocale;
 import org.geysermc.geyser.translator.protocol.PacketTranslator;
 import org.geysermc.geyser.translator.protocol.Translator;
+import org.geysermc.geyser.translator.text.MessageContext;
 import org.geysermc.geyser.translator.text.MessageTranslator;
 import org.geysermc.mcprotocollib.protocol.packet.ingame.clientbound.ClientboundSystemChatPacket;
 
@@ -89,12 +90,14 @@ public class JavaSystemChatTranslator extends PacketTranslator<ClientboundSystem
         textPacket.setXuid(session.getAuthData().xuid());
         textPacket.setType(packet.isOverlay() ? TextPacket.Type.JUKEBOX_POPUP : TextPacket.Type.SYSTEM);
 
-        textPacket.setNeedsTranslation(false);
+        MessageContext context = new MessageContext(session.locale());
+        MessageTranslator.convertMessage(packet.getContent(), context);
         if (packet.isOverlay()) {
-            textPacket.setMessage(ChatColor.WHITE + MessageTranslator.convertMessage(packet.getContent(), session.locale()));
+            textPacket.setMessage(ChatColor.WHITE + context.getResult());
         } else {
-            textPacket.setMessage(MessageTranslator.convertMessage(packet.getContent(), session.locale()));
+            textPacket.setMessage(context.getResult());
         }
+        textPacket.setNeedsTranslation(context.unresolved());
 
         if (session.isSentSpawnPacket()) {
             session.sendUpstreamPacket(textPacket);

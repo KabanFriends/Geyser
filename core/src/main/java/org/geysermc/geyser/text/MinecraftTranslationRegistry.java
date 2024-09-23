@@ -25,9 +25,16 @@
 
 package org.geysermc.geyser.text;
 
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.KeybindComponent;
+import net.kyori.adventure.text.TranslatableComponent;
 import net.kyori.adventure.text.renderer.TranslatableComponentRenderer;
+import net.kyori.adventure.translation.GlobalTranslator;
+import org.apache.commons.lang3.LocaleUtils;
 import org.checkerframework.checker.nullness.qual.NonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
+import org.geysermc.geyser.translator.text.MessageContext;
+import org.jetbrains.annotations.NotNull;
 
 import java.text.MessageFormat;
 import java.util.Locale;
@@ -38,20 +45,25 @@ import java.util.regex.Pattern;
  * This class is used for mapping a translation key with the already loaded Java locale data
  * Used in MessageTranslator.java as part of the KyoriPowered/Adventure library
  */
-public class MinecraftTranslationRegistry extends TranslatableComponentRenderer<String> {
+public class MinecraftTranslationRegistry extends TranslatableComponentRenderer<MessageContext> {
     private final Pattern stringReplacement = Pattern.compile("%s");
     private final Pattern positionalStringReplacement = Pattern.compile("%([0-9]+)\\$s");
 
     // Exists to maintain compatibility with Velocity's older Adventure version
     @Override
-    public @Nullable MessageFormat translate(@NonNull String key, @NonNull String locale) {
-        return this.translate(key, null, locale);
+    public @Nullable MessageFormat translate(@NonNull String key, @NonNull MessageContext context) {
+        return this.translate(key, null, context);
     }
 
     @Override
-    protected @Nullable MessageFormat translate(@NonNull String key, @Nullable String fallback, @NonNull String locale) {
+    protected @Nullable MessageFormat translate(@NonNull String key, @Nullable String fallback, @NonNull MessageContext context) {
         // Get the locale string
-        String localeString = MinecraftLocale.getLocaleStringIfPresent(key, locale);
+        boolean noTranslation = false;
+        MessageFormat format = GlobalTranslator.translator().translate(key, LocaleUtils.toLocale(context.locale()));
+        if (format != null) {
+            return format;
+        }
+        String localeString = MinecraftLocale.getLocaleStringIfPresent(key, context.locale());
         if (localeString == null) {
             if (fallback != null) {
                 // Fallback strings will still have their params inserted
@@ -60,6 +72,7 @@ public class MinecraftTranslationRegistry extends TranslatableComponentRenderer<
                 // The original translation will be translated
                 // Can be tested with 1.19.4: {"translate":"%s","with":[{"text":"weeeeeee"}]}
                 localeString = key;
+                noTranslation = true;
             }
         }
 
@@ -70,6 +83,8 @@ public class MinecraftTranslationRegistry extends TranslatableComponentRenderer<
         localeString = localeString.replace("{", "'{")
                 .replace("}", "'}");
 
+        int args = 0;
+
         // Replace the `%s` with numbered inserts `{0}`
         Pattern p = stringReplacement;
         Matcher m = p.matcher(localeString);
@@ -77,6 +92,7 @@ public class MinecraftTranslationRegistry extends TranslatableComponentRenderer<
         int i = 0;
         while (m.find()) {
             m.appendReplacement(sb, "{" + (i++) + "}");
+            args++;
         }
         m.appendTail(sb);
 
@@ -87,10 +103,24 @@ public class MinecraftTranslationRegistry extends TranslatableComponentRenderer<
         while (m.find()) {
             i = Integer.parseInt(m.group(1)) - 1;
             m.appendReplacement(sb, "{" + i + "}");
+            args++;
         }
         m.appendTail(sb);
 
+        if (noTranslation && args == 0) {
+            context.markUnresolved();
+            return new MessageFormat("%" + localeString + "\u200B", Locale.ROOT);
+        }
+
         // Locale shouldn't need to be specific - dates for example will not be handled
         return new MessageFormat(sb.toString(), Locale.ROOT);
+    }
+
+    @Override
+    protected @NotNull Component renderKeybind(@NotNull KeybindComponent component, @NotNull MessageContext context) {
+        TranslatableComponent translatable = Component.translatable().key(component.keybind())
+            .mergeStyle(component)
+            .build();
+        return this.renderTranslatable(translatable, context);
     }
 }

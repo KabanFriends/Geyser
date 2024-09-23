@@ -59,7 +59,7 @@ import org.geysermc.mcprotocollib.protocol.data.game.chat.ChatTypeDecoration;
 public class MessageTranslator {
     // These are used for handling the translations of the messages
     // Custom instead of TranslatableComponentRenderer#usingTranslationSource so we don't need to worry about finding a Locale class
-    private static final TranslatableComponentRenderer<String> RENDERER = new MinecraftTranslationRegistry();
+    private static final TranslatableComponentRenderer<MessageContext> RENDERER = new MinecraftTranslationRegistry();
 
     // Possible TODO: replace the legacy hover event serializer with an empty one since we have no use for hover events
     private static final GsonComponentSerializer GSON_SERIALIZER;
@@ -134,7 +134,13 @@ public class MessageTranslator {
      * @return Parsed and formatted message for bedrock
      */
     public static String convertMessage(Component message, String locale) {
-        return convertMessage(message, locale, true);
+        MessageContext context = new MessageContext(locale);
+        return convertMessage(message, context);
+    }
+
+    public static String convertMessage(Component message, MessageContext context) {
+        convertMessage(message, context, true);
+        return context.getResult();
     }
 
     /**
@@ -146,7 +152,9 @@ public class MessageTranslator {
      * @return Parsed and formatted message for bedrock, in gray color
      */
     public static String convertMessageForTooltip(Component message, String locale) {
-        return RESET + ChatColor.GRAY + convertMessageRaw(message, locale);
+        MessageContext context = new MessageContext(locale);
+        convertMessageRaw(message, context);
+        return RESET + ChatColor.GRAY + context.getResult();
     }
 
     /**
@@ -158,13 +166,19 @@ public class MessageTranslator {
      * @return Parsed and formatted message for bedrock
      */
     public static String convertMessageRaw(Component message, String locale) {
-        return convertMessage(message, locale, false);
+        MessageContext context = new MessageContext(locale);
+        return convertMessageRaw(message, context);
     }
 
-    private static String convertMessage(Component message, String locale, boolean addLeadingResetFormat) {
+    public static String convertMessageRaw(Component message, MessageContext context) {
+        convertMessage(message, context, false);
+        return context.getResult();
+    }
+
+    private static void convertMessage(Component message, MessageContext context, boolean addLeadingResetFormat) {
         try {
             // Translate any components that require it
-            message = RENDERER.render(message, locale);
+            message = RENDERER.render(message, context);
 
             String legacy = BEDROCK_SERIALIZER.serialize(message);
 
@@ -192,12 +206,12 @@ public class MessageTranslator {
                 lastFormatReset = next == 'r';
             }
 
-            return finalLegacy.toString();
+            context.setResult(finalLegacy.toString());
         } catch (Exception e) {
             GeyserImpl.getInstance().getLogger().debug(GSON_SERIALIZER.serialize(message));
             GeyserImpl.getInstance().getLogger().error("Failed to parse message", e);
 
-            return "";
+            context.setResult("");
         }
     }
 
@@ -281,10 +295,17 @@ public class MessageTranslator {
      * @return The plain text of the message
      */
     public static String convertToPlainText(Component message, String locale) {
+        MessageContext context = new MessageContext(locale);
+        convertToPlainText(message, context);
+        return context.getResult();
+    }
+
+    public static void convertToPlainText(Component message, MessageContext context) {
         if (message == null) {
-            return "";
+            context.setResult("");
+            return;
         }
-        return PlainTextComponentSerializer.plainText().serialize(RENDERER.render(message, locale));
+        context.setResult(PlainTextComponentSerializer.plainText().serialize(RENDERER.render(message, context)));
     }
 
     /**
@@ -316,8 +337,15 @@ public class MessageTranslator {
      * @return The plain text of the message
      */
     public static String convertToPlainTextLenient(String message, String locale) {
+        MessageContext context = new MessageContext(locale);
+        convertToPlainTextLenient(message, context);
+        return context.getResult();
+    }
+
+    public static void convertToPlainTextLenient(String message, MessageContext context) {
         if (message == null) {
-            return "";
+            context.setResult("");
+            return;
         }
         Component messageComponent = null;
         if (message.startsWith("{") && message.endsWith("}")) {
@@ -325,14 +353,14 @@ public class MessageTranslator {
             try {
                 messageComponent = GSON_SERIALIZER.deserialize(message);
                 // Translate any components that require it
-                messageComponent = RENDERER.render(messageComponent, locale);
+                messageComponent = RENDERER.render(messageComponent, context);
             } catch (Exception ignored) {
             }
         }
         if (messageComponent == null) {
             messageComponent = LegacyComponentSerializer.legacySection().deserialize(message);
         }
-        return PlainTextComponentSerializer.plainText().serialize(messageComponent);
+        context.setResult(PlainTextComponentSerializer.plainText().serialize(messageComponent));
     }
 
     public static void handleChatPacket(GeyserSession session, Component message, Holder<ChatType> chatTypeHolder, Component targetName, Component sender) {
@@ -342,7 +370,7 @@ public class MessageTranslator {
         textPacket.setXuid(session.getAuthData().xuid());
         textPacket.setType(TextPacket.Type.CHAT);
 
-        textPacket.setNeedsTranslation(false);
+        MessageContext context = new MessageContext(session.locale());
 
         ChatType chatType = chatTypeHolder.getOrCompute(session.getRegistryCache().chatTypes()::byId);
         if (chatType != null && chatType.chat() != null) {
@@ -364,14 +392,17 @@ public class MessageTranslator {
                 args.add(message);
             }
             withDecoration.arguments(args);
-            textPacket.setMessage(MessageTranslator.convertMessage(withDecoration.build(), session.locale()));
+            MessageTranslator.convertMessage(withDecoration.build(), context);
+            textPacket.setMessage(context.getResult());
         } else {
             session.getGeyser().getLogger().debug("Likely illegal chat type detection found.");
             if (session.getGeyser().getConfig().isDebugMode()) {
                 Thread.dumpStack();
             }
-            textPacket.setMessage(MessageTranslator.convertMessage(message, session.locale()));
+            MessageTranslator.convertMessage(message, session.locale());
+            textPacket.setMessage(context.getResult());
         }
+        textPacket.setNeedsTranslation(context.unresolved());
 
         session.sendUpstreamPacket(textPacket);
     }
