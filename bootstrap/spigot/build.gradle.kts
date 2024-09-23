@@ -25,7 +25,7 @@ dependencies {
     implementation(libs.cloud.paper)
     implementation(libs.commodore)
 
-    implementation(libs.adventure.text.serializer.bungeecord)
+    compileOnly(libs.adventure.text.serializer.bungeecord)
 
     compileOnly(libs.folia.api)
 
@@ -35,7 +35,7 @@ dependencies {
 platformRelocate("it.unimi.dsi.fastutil")
 platformRelocate("com.fasterxml.jackson")
 // Relocate net.kyori but exclude the component logger
-platformRelocate("net.kyori", "net.kyori.adventure.text.logger.slf4j.ComponentLogger")
+//platformRelocate("net.kyori", "net.kyori.adventure.text.logger.slf4j.ComponentLogger")
 platformRelocate("org.objectweb.asm")
 platformRelocate("me.lucko.commodore")
 platformRelocate("org.incendo")
